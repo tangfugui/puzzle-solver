@@ -1,0 +1,1612 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>拼图求解器 · 自定义地块与模块</title>
+<style>
+  :root{
+    --bg:#0b0d12;
+    --panel:#141821;
+    --panel2:#1a1f2b;
+    --line:#242a37;
+    --line2:#2e3546;
+    --text:#e7eaf1;
+    --muted:#8b93a6;
+    --dim:#5f6879;
+    --accent:#6d8cff;
+    --ok:#4ade80;
+    --warn:#ffb45c;
+    --err:#ff6b6b;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;min-height:100%;}
+  body{
+    background:
+      radial-gradient(1100px 520px at 15% -12%, #1b2437 0%, transparent 62%),
+      radial-gradient(900px 480px at 95% 0%, #1a2233 0%, transparent 55%),
+      var(--bg);
+    color:var(--text);
+    font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    font-size:14px;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1420px;margin:0 auto;padding:24px 24px 70px;}
+  header{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:20px;}
+  h1{font-size:19px;margin:0;font-weight:650;letter-spacing:.2px;}
+  h1 span{color:var(--accent);}
+  .sub{color:var(--muted);font-size:12.5px;}
+  .layout{
+    display:grid;
+    grid-template-columns:300px 560px minmax(240px,300px);
+    gap:16px;
+    align-items:start;
+  }
+  @media (max-width:1120px){ .layout{grid-template-columns:1fr 1fr;} }
+  @media (max-width:760px){ .layout{grid-template-columns:1fr;} }
+
+  /* 桌面端：整页不滚动，内容超出时在各面板内部滚动 */
+  @media (min-width:1121px){
+    html,body{height:100%;overflow:hidden;}
+    .wrap{height:100%;display:flex;flex-direction:column;padding-bottom:24px;}
+    header{flex:none;margin-bottom:14px;}
+    .layout{flex:1;min-height:0;align-items:stretch;}
+    .panel{max-height:100%;overflow-y:auto;}
+    .panel::-webkit-scrollbar{width:8px;}
+    .panel::-webkit-scrollbar-track{background:transparent;}
+    .panel::-webkit-scrollbar-thumb{background:#242a37;border-radius:4px;}
+    .panel::-webkit-scrollbar-thumb:hover{background:#2e3546;}
+  }
+
+  .panel{
+    background:linear-gradient(180deg,#171c26,#13161e);
+    border:1px solid var(--line);
+    border-radius:15px;
+    padding:15px;
+    box-shadow:0 10px 30px rgba(0,0,0,.32), inset 0 1px 0 rgba(255,255,255,.03);
+  }
+  .panel h2{
+    font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--muted);margin:0 0 13px;font-weight:600;
+    display:flex;align-items:center;
+  }
+  .badge{
+    display:inline-flex;width:18px;height:18px;border-radius:6px;
+    background:#283040;color:#9db0ff;align-items:center;justify-content:center;
+    font-size:10.5px;margin-right:8px;font-weight:700;letter-spacing:0;
+  }
+
+  .pad{
+    display:grid;gap:4px;
+    grid-template-columns:repeat(var(--cols,5),1fr);
+    user-select:none;touch-action:none;
+  }
+  .cell{
+    aspect-ratio:1/1;border-radius:6px;
+    background:#232a37;border:1px solid #2d3543;
+    cursor:pointer;transition:background .12s,border-color .12s;
+  }
+  .cell:hover{background:#2c3545;border-color:#3d4859;}
+  .cell.blocked{
+    background:repeating-linear-gradient(45deg,#111419 0 5px,#171c25 5px 10px);
+    border-color:#1e232d;
+  }
+  .cell.blocked.diggable{cursor:pointer;}
+  .cell.blocked.diggable:hover{border-color:#4a5b78;background:repeating-linear-gradient(45deg,#141924 0 5px,#1b2333 5px 10px);}
+
+  /* 地块外的格子：不可用 / 可开 / 已开 */
+  .cell.outside{
+    position:relative;background:#0c1017;border:1px dashed #1c222d;opacity:.9;
+  }
+  .cell.outside::after{
+    content:'+';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    color:#232b38;font-size:12px;line-height:1;pointer-events:none;
+  }
+  .cell.outside.can-open{cursor:pointer;border-color:#2b3546;background:#0f1520;}
+  .cell.outside.can-open::after{color:#39465c;}
+  .cell.outside.can-open:hover{background:#16203a;border-color:var(--accent);}
+  .cell.outside.can-open:hover::after{color:#7f9bff;}
+  .cell.extra{
+    background:linear-gradient(180deg,#2b3f78,#1d2c56);border:1px solid #5f7fe0;
+    box-shadow:0 0 8px rgba(109,140,255,.35), inset 0 0 0 1px rgba(140,165,255,.25);
+    cursor:pointer;
+  }
+  .cell.extra:hover{border-color:#8aa4ff;background:#33499a;}
+  /* 系统开格：青绿色，与用户开格区分 */
+  .cell.extra.sys{
+    background:linear-gradient(180deg,#1c5f52,#123c34);border:1px solid #3aa88f;
+    box-shadow:0 0 8px rgba(58,190,150,.28), inset 0 0 0 1px rgba(90,220,180,.2);
+    cursor:pointer;
+  }
+  .cell.extra.sys:hover{border-color:#5ecfae;background:#237765;}
+
+  .mode-row{display:flex;gap:6px;margin-bottom:12px;}
+  .mode-row button{flex:1;font-size:12px;padding:7px 0;border-radius:9px;}
+  .mode-row button.sel{
+    background:#242e45;border-color:#4a63a8;color:#fff;font-weight:600;
+    box-shadow:0 0 0 2px rgba(109,140,255,.14);
+  }
+
+  .open-hint{
+    display:none;margin-top:10px;padding:10px 11px;border-radius:10px;
+    background:#1d1a12;border:1px solid #3d3122;color:#c9bda6;font-size:12px;line-height:1.65;
+  }
+  .open-hint b{color:var(--warn);font-weight:650;}
+  .open-hint .acts{display:flex;align-items:center;gap:9px;margin-top:9px;flex-wrap:wrap;}
+  .open-hint .acts button{padding:6px 12px;font-size:12px;}
+  .open-hint .acts .dim{color:#6d6455;font-size:11.5px;}
+
+  .mcell{
+    aspect-ratio:1/1;border-radius:6px;
+    background:#1c222d;border:1px solid #262e3c;
+    cursor:pointer;transition:background .1s,border-color .1s;
+  }
+  .mcell:hover{background:#242c3a;}
+  .mcell.on{
+    background:var(--mc,#6d8cff);
+    border-color:transparent;
+    box-shadow:0 0 0 1px rgba(255,255,255,.14) inset, 0 3px 10px -3px var(--mc,#6d8cff);
+  }
+
+  .rcell{
+    aspect-ratio:1/1;border-radius:6px;
+    display:flex;align-items:center;justify-content:center;
+    font-size:10.5px;font-weight:700;letter-spacing:.02em;
+    color:#0a0d13;line-height:1;
+    transition:transform .12s, box-shadow .12s;
+  }
+  .rcell.void{
+    background:repeating-linear-gradient(45deg,#111419 0 5px,#171c25 5px 10px);
+  }
+  .rcell.free{background:#161b24;border:1px dashed #2b3444;}
+  .rcell.ghost{background:#0c0f15;border:1px dashed #171c24;opacity:.55;}
+  .rcell.extrafree{background:#141c2e;border:1px dashed #3a5391;}
+  .rcell.sysfree{background:#0e1a17;border:1px dashed #2c5a4b;}
+  .rcell.hl{box-shadow:0 0 0 2px #fff, 0 0 14px rgba(255,255,255,.45);transform:scale(1.04);z-index:2;}
+
+  .size-row{display:flex;gap:10px;margin-bottom:12px;}
+  .size-row label{
+    flex:1;display:flex;align-items:center;gap:8px;
+    background:#1b212c;border:1px solid var(--line);
+    border-radius:9px;padding:7px 10px;font-size:12.5px;color:var(--muted);
+  }
+  select{
+    flex:1;background:transparent;border:0;color:var(--text);
+    font:inherit;font-size:13px;outline:none;cursor:pointer;
+    appearance:none;text-align:right;
+  }
+  select option{background:#1b212c;color:var(--text);}
+
+  .hint{color:var(--dim);font-size:11.5px;line-height:1.6;margin:10px 0 0;}
+  .row-btns{display:flex;gap:8px;margin-top:12px;}
+  .row-btns button{flex:1;}
+  button{
+    font:inherit;font-size:12.5px;cursor:pointer;
+    border-radius:9px;border:1px solid var(--line2);
+    background:#1e2532;color:var(--text);
+    padding:8px 12px;transition:.15s;white-space:nowrap;
+  }
+  button:hover:not(:disabled){background:#273040;border-color:#404c62;}
+  button:active:not(:disabled){transform:translateY(1px);}
+  button:disabled{opacity:.4;cursor:not-allowed;}
+  button.primary{
+    background:linear-gradient(180deg,#6584ff,#475fe0);
+    border-color:#6584ff;color:#fff;font-weight:600;
+    box-shadow:0 4px 14px -6px rgba(101,132,255,.9);
+  }
+  button.primary:hover:not(:disabled){filter:brightness(1.1);background:linear-gradient(180deg,#7590ff,#5169ea);}
+
+  .stat{
+    margin-top:12px;padding:9px 11px;border-radius:9px;
+    background:#10141c;border:1px solid #1e242f;
+    font-size:12px;color:var(--muted);
+    font-variant-numeric:tabular-nums;
+  }
+  .stat b{color:var(--text);font-weight:650;}
+  .ok{color:var(--ok);}
+  .warn{color:var(--warn);}
+  .err{color:var(--err);}
+
+  .qsel{display:flex;gap:6px;margin-top:10px;}
+  .qchip{
+    flex:1;display:flex;align-items:center;justify-content:center;gap:4px;
+    padding:7px 0;border-radius:9px;cursor:pointer;font-size:12px;
+    background:#1a1f2a;border:1px solid var(--line);color:var(--muted);
+    transition:.15s;user-select:none;
+  }
+  .qchip i{width:8px;height:8px;border-radius:50%;display:block;}
+  .qchip:hover{background:#212836;color:var(--text);}
+  .qchip.sel{
+    background:#242e45;border-color:#4a63a8;color:#fff;font-weight:650;
+    box-shadow:0 0 0 2px rgba(109,140,255,.14);
+  }
+  .q-badge{
+    font-size:10px;font-weight:700;color:#0a0d13;border-radius:5px;
+    padding:0 4px;line-height:15px;cursor:pointer;
+  }
+  .q-badge:hover{filter:brightness(1.12);}
+  .sw{
+    width:24px;height:24px;border-radius:7px;cursor:pointer;
+    border:2px solid transparent;transition:.15s;
+  }
+  .sw:hover{transform:scale(1.12);}
+  .sw.sel{border-color:#fff;box-shadow:0 0 0 3px rgba(255,255,255,.14);}
+
+  .mod-list{display:flex;flex-direction:column;gap:7px;margin-top:12px;}
+  /* 模块库 */
+  .lib-sec{font-size:11px;letter-spacing:.6px;color:var(--dim);margin-top:14px;}
+  .lib-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(122px,1fr));gap:8px;margin-top:8px;}
+  .lib-card{
+    display:flex;align-items:center;gap:8px;padding:8px 9px;
+    border:1px solid var(--line);border-radius:10px;background:var(--panel2);
+    cursor:pointer;transition:border-color .15s, background .15s, transform .05s;
+    position:relative;
+  }
+  .lib-card:hover{border-color:var(--line2);background:#1e2431;}
+  .lib-card:active{transform:scale(.97);}
+  .lib-card.active{border-color:rgba(109,140,255,.55);}
+  .lib-card .thumb{width:38px;height:38px;flex:0 0 auto;}
+  .lib-info{min-width:0;}
+  .lib-name{font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .lib-sub{font-size:10.5px;color:var(--dim);margin-top:2px;}
+  .lib-cnt{
+    position:absolute;top:-7px;right:-5px;font-size:10.5px;font-weight:600;
+    color:#0b0d12;background:var(--accent);border-radius:9px;padding:1px 7px;
+  }
+  .panel details{margin-top:12px;border:1px dashed var(--line2);border-radius:10px;padding:8px 12px 12px;}
+  .panel summary{cursor:pointer;color:var(--muted);font-size:12.5px;user-select:none;}
+  .panel summary:hover{color:var(--text);}
+  .mod-card{
+    display:flex;align-items:center;gap:10px;
+    background:#1a1f2a;border:1px solid var(--line);
+    border-radius:10px;padding:8px 9px;
+    transition:.15s;
+  }
+  .mod-card:hover{border-color:#3a4558;background:#1e2431;}
+  .thumb-wrap{flex:0 0 auto;}
+  .thumb{display:grid;gap:2px;width:44px;height:44px;}
+  .thumb i{display:block;border-radius:2px;background:transparent;}
+  .mod-info{flex:1;min-width:0;}
+  .mod-name{font-size:12.5px;font-weight:650;display:flex;align-items:baseline;gap:6px;}
+  .mod-area{color:var(--dim);font-size:10.5px;font-weight:400;}
+  .stepper{display:flex;align-items:center;gap:6px;margin-top:4px;}
+  .stepper button{
+    width:20px;height:20px;padding:0;line-height:1;border-radius:6px;
+    font-size:13px;display:flex;align-items:center;justify-content:center;
+    background:#242c3a;border-color:#2f3848;color:var(--muted);
+  }
+  .stepper span{font-size:12px;color:var(--text);min-width:16px;text-align:center;font-variant-numeric:tabular-nums;}
+  .del{
+    width:22px;height:22px;padding:0;border-radius:6px;
+    background:transparent;border-color:transparent;color:#5a6274;
+    font-size:12px;display:flex;align-items:center;justify-content:center;
+  }
+  .del:hover{background:#2e2028;color:var(--err);border-color:#3d2830;}
+
+  .result{max-width:560px;}
+  .legend{display:flex;flex-wrap:wrap;gap:7px;margin-top:14px;}
+  .lg{
+    display:flex;align-items:center;gap:6px;
+    font-size:11.5px;color:var(--muted);
+    background:#10141c;border:1px solid #1e242f;
+    border-radius:7px;padding:4px 9px;cursor:default;
+  }
+  .lg i{width:9px;height:9px;border-radius:3px;display:block;}
+  .lg.miss{color:#6b7385;background:#12151c;border-color:#202632;}
+  .lg.miss .x{color:#8a4a4a;font-weight:700;}
+
+  .empty-state{
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:8px;padding:56px 20px;color:var(--dim);font-size:12.5px;text-align:center;
+    border:1px dashed #232a36;border-radius:12px;
+  }
+  .empty-state .big{font-size:26px;opacity:.5;}
+
+  .toast{
+    position:fixed;left:50%;bottom:34px;transform:translate(-50%,16px);
+    background:#232b3a;border:1px solid #3a455a;color:var(--text);
+    padding:9px 16px;border-radius:10px;font-size:12.5px;
+    box-shadow:0 12px 34px rgba(0,0,0,.5);
+    opacity:0;pointer-events:none;transition:.22s;z-index:99;
+  }
+  .toast.show{opacity:1;transform:translate(-50%,0);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>拼图<span>求解器</span></h1>
+    <div class="sub">固定地块（6×7）· 内置模块库 · 品质优先摆放 · 系统开格不限 / 自己开 3 格</div>
+  </header>
+
+  <div class="layout">
+    <!-- 1. 地块 -->
+    <section class="panel">
+      <h2><span class="badge">1</span>地块设计</h2>
+      <div class="mode-row">
+        <button id="modeUser" class="sel">用户开格 · 最多 3</button>
+        <button id="modeSys">系统开格 · 不限</button>
+      </div>
+      <div class="size-row">
+        <label>行 <select id="rows" disabled></select></label>
+        <label>列 <select id="cols" disabled></select></label>
+        <span class="hint" style="margin:0;">固定 6 × 7</span>
+      </div>
+      <div id="board" class="pad"></div>
+      <div class="hint">地块固定不可改。先选开格模式：<b style="color:#4dd0b0">系统开格</b>不限量（用于标记每关系统预开的格子，青绿色），<b>用户开格</b>最多 3 个（蓝色）。点击黑色斜纹格打开，再点一次收回。</div>
+      <div class="row-btns">
+        <button id="smartOpen">智能开格</button>
+        <button id="closeExtra">收回开格</button>
+      </div>
+      <div class="stat" id="boardStat">—</div>
+    </section>
+
+    <!-- 2. 模块 -->
+    <section class="panel">
+      <h2><span class="badge">2</span>模块库</h2>
+      <div class="hint" style="margin-top:8px;">先选品质，再点下面的模块卡片加入清单（同一张再点一次数量 +1）。品质优先级：红 &gt; 金 &gt; 紫 &gt; 蓝 &gt; 绿。</div>
+      <div class="qsel" id="qualitySel" style="margin-top:12px;"></div>
+      <div class="lib-sec">模块形状</div>
+      <div id="libGrid" class="lib-grid"></div>
+      <div class="stat" id="modStat" style="margin-top:14px;">—</div>
+      <div id="moduleList" class="mod-list"></div>
+      <details id="customBox">
+        <summary>自定义形状（库里没有的模块在这里画）</summary>
+        <div id="modulePad" class="pad" style="margin-top:10px;"></div>
+        <div class="row-btns">
+          <button id="addModule" class="primary">+ 添加模块</button>
+          <button id="clearDraft">清空</button>
+        </div>
+      </details>
+    </section>
+
+    <!-- 3. 求解 -->
+    <section class="panel">
+      <h2><span class="badge">3</span>求解结果</h2>
+      <div class="row-btns">
+        <button id="solveBtn" class="primary">开始摆放</button>
+      </div>
+      <div class="stat" id="solveStat">等待摆放…</div>
+      <div id="openHint" class="open-hint"></div>
+      <div id="resultArea" style="margin-top:14px;">
+        <div class="empty-state" id="emptyState">
+          <div class="big">▦</div>
+          <div>放不下的模块会自动略过，优先让尽可能多的格子被占用</div>
+        </div>
+        <div id="result" class="pad result" style="display:none;"></div>
+      </div>
+      <div id="legend" class="legend"></div>
+    </section>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  // 品质：绿 < 蓝 < 紫 < 金 < 红，权重按 50 进制递增（单格最多 49，50 > 49 保证严格优先级）
+  var QUALITIES = [
+    { name: '绿', color: '#4ade80', w: 1 },
+    { name: '蓝', color: '#4ea8ff', w: 50 },
+    { name: '紫', color: '#b28dff', w: 2500 },
+    { name: '金', color: '#ffc94d', w: 125000 },
+    { name: '红', color: '#ff6b6b', w: 6250000 }
+  ];
+  function qualColor(t) { return (QUALITIES[t] || QUALITIES[0]).color; }
+  function qualName(t) { return (QUALITIES[t] || QUALITIES[0]).name; }
+
+  // 内置模块库（游戏固定模块的形状，品质由用户在面板上单独选择）
+  var LIBRARY = [
+    { label: '单格',     cells: [[0,0]] },
+    { label: '横条1×2',  cells: [[0,0],[0,1]] },
+    { label: '竖条1×2',  cells: [[0,0],[1,0]] },
+    { label: '竖条1×3',  cells: [[0,0],[1,0],[2,0]] },
+    { label: '方块2×2',  cells: [[0,0],[0,1],[1,0],[1,1]] },
+    { label: '拐角3┌',   cells: [[0,0],[0,1],[1,0]] },
+    { label: '拐角3┐',   cells: [[0,0],[0,1],[1,1]] },
+    { label: '拐角3└',   cells: [[0,0],[1,0],[1,1]] },
+    { label: '拐角3┘',   cells: [[0,1],[1,0],[1,1]] },
+    { label: 'L四格┌',   cells: [[0,0],[0,1],[1,0],[2,0]] },
+    { label: 'L四格┐',   cells: [[0,0],[0,1],[1,1],[2,1]] },
+    { label: 'L四格└',   cells: [[0,0],[1,0],[2,0],[2,1]] },
+    { label: 'L四格┘',   cells: [[0,1],[1,1],[2,0],[2,1]] }
+  ];
+
+  var CANVAS = 7;          // 最大工作区
+  var EXTRA_LIMIT = 3;     // 最多可打开的格子数
+
+  // 固定地块：6×7。基础可用 15 格（第1行第2~4列，第2~4行第1~4列），其余 27 格黑色斜纹。
+  // 第 4 列 4 格属于初始值，用浅青高亮标示，不占用系统开格计数。
+  var FIXED_ROWS = 6, FIXED_COLS = 7;
+  var FIXED_BLOCKED = (function () {
+    var avail = { 1: [2, 3, 4], 2: [1, 2, 3, 4], 3: [1, 2, 3, 4], 4: [1, 2, 3, 4] };
+    var s = new Set();
+    for (var r = 0; r < FIXED_ROWS; r++) {
+      for (var c = 0; c < FIXED_COLS; c++) {
+        var free = avail[r] && avail[r].indexOf(c) >= 0;
+        if (!free) s.add(r + ',' + c);
+      }
+    }
+    return s;   // 27 格
+  })();
+  // 初始高亮：第 4 列第 1~4 行（只是视觉标记，属于初始可用格）
+  var FIXED_INIT_HL = (function () {
+    var s = new Set();
+    for (var r = 1; r <= 4; r++) s.add(r + ',4');
+    return s;
+  })();
+
+  var state = {
+    rows: FIXED_ROWS,
+    cols: FIXED_COLS,
+    blocked: FIXED_BLOCKED, // 固定挖空，不可修改
+    extra: new Set(),       // 用户开格（最多 3 个，蓝色高亮）
+    sysExtra: new Set(),    // 系统开格（不限量，青绿色高亮），默认为空
+    initHL: FIXED_INIT_HL,  // 初始值高亮（不属于开格）
+    openMode: 'user',       // 当前开格模式：user | sys
+    modules: [],            // {name,key,cells,w,h,tier,color,count}
+    draft: new Set(),       // "r,c"
+    draftTier: 0,           // 当前绘制的品质
+    solution: null,
+    searching: false
+  };
+  var idCounter = 0;
+
+  var $ = function (s) { return document.querySelector(s); };
+
+  /* ================= SOLVER_BEGIN ================= */
+  // 目标：品质优先地把模块塞进地块（不要求铺满）。
+  // 优先级严格按 红 > 金 > 紫 > 蓝 > 绿：先保证高品质模块的占地面积最大，
+  // 同级内再尽量多放。用 50 进制权重把字典序压成一个整数分数（单格最多 49 格，50 > 49 保证严格字典序）。
+  function createSolver(rows, cols, isAvail, modules, maxNodes) {
+    var N = rows * cols;
+    var cellIdx = new Array(N).fill(-1);
+    var freeCount = 0, r, c;
+
+    for (r = 0; r < rows; r++) {
+      for (c = 0; c < cols; c++) {
+        if (isAvail(r, c)) cellIdx[r * cols + c] = freeCount++;
+      }
+    }
+    if (freeCount === 0) return { ok: false, error: '地块里没有可用格子，请至少保留一格' };
+
+    var TIER_N = QUALITIES.length;
+    var insts = [];
+    for (var mi = 0; mi < modules.length; mi++) {
+      var m = modules[mi];
+      var cnt = Math.max(0, Math.floor(m.count || 0));
+      var tier = Math.min(TIER_N - 1, Math.max(0, m.tier || 0));
+      for (var k = 0; k < cnt; k++) {
+        insts.push({
+          key: m.key, cells: m.cells, w: m.w, h: m.h,
+          color: m.color, name: m.name, tier: tier, weight: QUALITIES[tier].w
+        });
+      }
+    }
+    if (insts.length === 0) return { ok: false, error: '还没有添加任何模块' };
+
+    // 高品质优先 + 大块优先，便于尽早拿到好的下界
+    insts.sort(function (x, y) { return (y.tier - x.tier) || (y.cells.length - x.cells.length); });
+
+    var totalArea = 0;
+    var totalByTier = new Array(TIER_N).fill(0);
+    for (var a = 0; a < insts.length; a++) {
+      totalArea += insts[a].cells.length;
+      totalByTier[insts[a].tier] += insts[a].cells.length;
+    }
+
+    var availMask = (1n << BigInt(freeCount)) - 1n;
+    var lowBitIdx = new Map();
+    for (var b = 0; b <= 63; b++) lowBitIdx.set(1n << BigInt(b), b);
+
+    var placeCache = new Map();
+    function placementsOf(inst) {
+      var cached = placeCache.get(inst.key);
+      if (cached) return cached;
+      var list = [];
+      for (var dr = 0; dr + inst.h <= rows; dr++) {
+        for (var dc = 0; dc + inst.w <= cols; dc++) {
+          var mask = 0n, idxs = [], ok = true;
+          for (var t = 0; t < inst.cells.length; t++) {
+            var rr = dr + inst.cells[t][0];
+            var cc = dc + inst.cells[t][1];
+            var ci = cellIdx[rr * cols + cc];
+            if (ci < 0) { ok = false; break; }
+            mask |= 1n << BigInt(ci);
+            idxs.push(ci);
+          }
+          if (ok) list.push({ mask: mask, idxs: idxs, dr: dr, dc: dc });
+        }
+      }
+      placeCache.set(inst.key, list);
+      return list;
+    }
+
+    var instPlaces = insts.map(placementsOf);
+
+    var anyPlaceable = false;
+    for (var i0 = 0; i0 < instPlaces.length; i0++) {
+      if (instPlaces[i0].length > 0) { anyPlaceable = true; break; }
+    }
+    if (!anyPlaceable) return { ok: false, error: '所有模块都放不进当前地块（尺寸超出可用区域）' };
+
+    var byCell = [];
+    for (var q = 0; q < freeCount; q++) byCell.push([]);
+    for (var ii = 0; ii < insts.length; ii++) {
+      var ps0 = instPlaces[ii];
+      for (var pi = 0; pi < ps0.length; pi++) {
+        var ids = ps0[pi].idxs;
+        for (var z = 0; z < ids.length; z++) byCell[ids[z]].push([ii, pi]);
+      }
+    }
+
+    // 同形状 + 同品质的实例按序使用，剪掉对称解
+    var prevSame = new Array(insts.length).fill(-1);
+    var lastByKey = new Map();
+    for (var s = 0; s < insts.length; s++) {
+      var kk = insts[s].key + '#' + insts[s].tier;
+      if (lastByKey.has(kk)) prevSame[s] = lastByKey.get(kk);
+      lastByKey.set(kk, s);
+    }
+
+    // 剩余可放面积（按品质），用于上界
+    var remTier = totalByTier.slice();
+    // 上界：把剩余空格优先分配给高品质模块（忽略几何约束的松弛，必然 ≥ 真实最优）
+    function boundScore(freeCells) {
+      var total = 0, left = freeCells;
+      for (var t = TIER_N - 1; t >= 0; t--) {
+        if (left <= 0) break;
+        var take = Math.min(remTier[t], left);
+        total += take * QUALITIES[t].w;
+        left -= take;
+      }
+      return total;
+    }
+
+    // 理论最优分数（全部塞满、高品质优先）
+    var targetScore = boundScore(freeCount);
+
+    var used = new Array(insts.length).fill(false);
+    var chosen = [];
+    var nodes = 0;
+    var stopped = false;
+    var MAX_NODES = maxNodes || 8000000;
+    var TIME_CAP = 900;          // 毫秒，防止极端配置卡死页面
+    var t0 = performance.now();
+
+    var bestScore = 0;
+    var bestChosen = [];
+
+    // 先用贪心拿一个下界，让分支限界一开始就有剪枝基准
+    (function greedy() {
+      var occ = 0n, score = 0, picked = [];
+      for (var i = 0; i < insts.length; i++) {
+        var list = instPlaces[i];
+        for (var j = 0; j < list.length; j++) {
+          if ((list[j].mask & occ) === 0n) {
+            occ |= list[j].mask;
+            score += insts[i].cells.length * insts[i].weight;
+            picked.push([i, j]);
+            break;
+          }
+        }
+      }
+      if (score > bestScore) { bestScore = score; bestChosen = picked; }
+    })();
+
+    // 再跑"品质分层 + 贴合"贪心（含随机重启）：从高到低逐层尽量铺，放的时候优先贴边贴块。
+    // 这样即使搜索被时间上限截断，输出也一定是"高品质优先"的合法解且质量不差。
+    (function tieredGreedy() {
+      var seed = 20261019;
+      function rnd() { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; }
+
+      function run(randomized) {
+        var occ = 0n, score = 0, picked = [];
+        for (var t = TIER_N - 1; t >= 0; t--) {
+          var idxs = [];
+          for (var i = 0; i < insts.length; i++) if (insts[i].tier === t) idxs.push(i);
+          if (randomized) {
+            for (var sh = idxs.length - 1; sh > 0; sh--) {
+              var jj = Math.floor(rnd() * (sh + 1));
+              var tmp = idxs[sh]; idxs[sh] = idxs[jj]; idxs[jj] = tmp;
+            }
+          } else {
+            idxs.sort(function (a, b) { return insts[b].cells.length - insts[a].cells.length; });
+          }
+
+          for (var k = 0; k < idxs.length; k++) {
+            var ii = idxs[k], list = instPlaces[ii];
+            var cands = [], bestTouch = -1;
+            for (var j = 0; j < list.length; j++) {
+              var mask = list[j].mask;
+              if ((mask & occ) !== 0n) continue;
+              var ids = list[j].idxs, touch = 0;
+              for (var z = 0; z < ids.length; z++) {
+                var rr = Math.floor(ids[z] / cols), cc = ids[z] % cols;
+                if (rr === 0 || cc === 0 || rr === rows - 1 || cc === cols - 1) touch++;
+                if (rr > 0 && ((occ >> BigInt(ids[z] - cols)) & 1n) === 1n) touch++;
+                if (rr < rows - 1 && ((occ >> BigInt(ids[z] + cols)) & 1n) === 1n) touch++;
+                if (cc > 0 && ((occ >> BigInt(ids[z] - 1)) & 1n) === 1n) touch++;
+                if (cc < cols - 1 && ((occ >> BigInt(ids[z] + 1)) & 1n) === 1n) touch++;
+              }
+              cands.push({ j: j, touch: touch });
+              if (touch > bestTouch) bestTouch = touch;
+            }
+            if (!cands.length) continue;
+
+            var pick = null;
+            if (!randomized) {
+              for (var q = 0; q < cands.length; q++) if (cands[q].touch === bestTouch) { pick = cands[q]; break; }
+            } else {
+              // 只在最贴合的若干个候选里随机，避免挑到很碎的落点
+              var top = cands.filter(function (c2) { return c2.touch >= bestTouch - 1; });
+              pick = top[Math.floor(rnd() * top.length)];
+            }
+            if (!pick) continue;
+
+            occ |= instPlaces[ii][pick.j].mask;
+            score += insts[ii].cells.length * insts[ii].weight;
+            picked.push([ii, pick.j]);
+          }
+        }
+        return { score: score, picked: picked };
+      }
+
+      var best = run(false);
+      for (var it = 0; it < 30; it++) {
+        var r2 = run(true);
+        if (r2.score > best.score) best = r2;
+      }
+      if (best.score > bestScore) { bestScore = best.score; bestChosen = best.picked; }
+    })();
+
+    function dfs(occ, score, filled) {
+      if (stopped || bestScore >= targetScore) return;
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestChosen = chosen.map(function (p) { return [p[0], p[1]]; });
+        if (bestScore >= targetScore) return;
+      }
+
+      if (++nodes > MAX_NODES) { stopped = true; return; }
+      if ((nodes & 2047) === 0 && performance.now() - t0 > TIME_CAP) { stopped = true; return; }
+
+      var freeCells = freeCount - filled;
+      if (freeCells === 0) return;
+
+      // 上界剪枝：当前分数 + 剩余空格按品质优先能拿到的最大分数
+      if (score + boundScore(freeCells) <= bestScore) return;
+
+      var freeBits = availMask ^ occ;
+      if (freeBits === 0n) return;
+      var low = freeBits & -freeBits;
+      var ci = lowBitIdx.get(low);
+
+      var cands = byCell[ci];
+      for (var t = 0; t < cands.length; t++) {
+        var ii = cands[t][0], pi = cands[t][1];
+        if (used[ii]) continue;
+        if (prevSame[ii] !== -1 && !used[prevSame[ii]]) continue;
+        var p = instPlaces[ii][pi];
+        if ((p.mask & occ) !== 0n) continue;
+
+        var sz = insts[ii].cells.length;
+        var tier = insts[ii].tier;
+        used[ii] = true;
+        chosen.push([ii, pi]);
+        remTier[tier] -= sz;
+        dfs(occ | p.mask, score + sz * insts[ii].weight, filled + sz);
+        remTier[tier] += sz;
+        chosen.pop();
+        used[ii] = false;
+        if (stopped || bestScore >= targetScore) return;
+      }
+
+      // 这个格子留空
+      dfs(occ | low, score, filled + 1);
+    }
+
+    dfs(0n, 0, 0);
+    var elapsed = performance.now() - t0;
+
+    var placements = bestChosen.map(function (pc) {
+      var inst = insts[pc[0]];
+      var p = instPlaces[pc[0]][pc[1]];
+      return {
+        name: inst.name,
+        color: inst.color,
+        tier: inst.tier,
+        cells: inst.cells.map(function (rc) { return [p.dr + rc[0], p.dc + rc[1]]; })
+      };
+    });
+
+    var usedFlag = new Array(insts.length).fill(false);
+    for (var u = 0; u < bestChosen.length; u++) usedFlag[bestChosen[u][0]] = true;
+
+    var missing = [];
+    var tierStats = [];
+    for (var tt = 0; tt < TIER_N; tt++) {
+      tierStats.push({ tier: tt, total: 0, placed: 0, totalArea: 0, placedArea: 0 });
+    }
+    var coverage = 0;
+    for (var v = 0; v < insts.length; v++) {
+      var st = tierStats[insts[v].tier];
+      st.total++;
+      st.totalArea += insts[v].cells.length;
+      if (usedFlag[v]) {
+        st.placed++;
+        st.placedArea += insts[v].cells.length;
+        coverage += insts[v].cells.length;
+      } else {
+        missing.push({ name: insts[v].name, color: insts[v].color, tier: insts[v].tier });
+      }
+    }
+
+    return {
+      ok: true,
+      placements: placements,
+      missing: missing,
+      tierStats: tierStats,
+      score: bestScore,
+      targetScore: targetScore,
+      coverage: coverage,
+      freeCount: freeCount,
+      totalArea: totalArea,
+      targetMax: Math.min(totalArea, freeCount),
+      optimal: bestScore >= targetScore || !stopped,
+      stopped: stopped,
+      nodes: nodes,
+      elapsed: elapsed,
+      instCount: insts.length
+    };
+  }
+
+  /* ================= SOLVER_END ================= */
+
+  /* ---------------- 基础工具 ---------------- */
+  function normalize(cells) {
+    var minR = Infinity, minC = Infinity, i;
+    for (i = 0; i < cells.length; i++) {
+      if (cells[i][0] < minR) minR = cells[i][0];
+      if (cells[i][1] < minC) minC = cells[i][1];
+    }
+    return cells
+      .map(function (p) { return [p[0] - minR, p[1] - minC]; })
+      .sort(function (x, y) { return x[0] - y[0] || x[1] - y[1]; });
+  }
+  function shapeKey(cells) {
+    return cells.map(function (p) { return p[0] + ',' + p[1]; }).join(';');
+  }
+  function bounds(cells) {
+    var w = 0, h = 0;
+    cells.forEach(function (p) {
+      if (p[1] + 1 > w) w = p[1] + 1;
+      if (p[0] + 1 > h) h = p[0] + 1;
+    });
+    return { w: w, h: h };
+  }
+  function isExtra(r, c) { return state.extra.has(r + ',' + c); }
+  function extraLeft() { return EXTRA_LIMIT - state.extra.size; }
+  // 可开格空间：只在既有行的右侧延伸，不新增行
+
+  // 可用 = 地块内未挖空，或已打开的格子（系统开格 / 用户开格）
+  function isAvail(r, c) {
+    if (r >= state.rows || c >= state.cols) return false;
+    var key = r + ',' + c;
+    return !state.blocked.has(key) || state.extra.has(key) || state.sysExtra.has(key);
+  }
+  function makeAvail(extraSet) {
+    return function (r, c) {
+      if (r >= state.rows || c >= state.cols) return false;
+      var key = r + ',' + c;
+      return !state.blocked.has(key) || extraSet.has(key) || state.sysExtra.has(key);
+    };
+  }
+  var DIRS = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+
+  var toastTimer = null;
+  function toast(msg) {
+    var el = $('#toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.classList.remove('show'); }, 1900);
+  }
+
+  /* ---------------- 地块 ---------------- */
+  var boardEl = $('#board');
+  var boardCells = [];
+
+  function renderBoard() {
+    boardEl.style.setProperty('--cols', CANVAS);
+    boardEl.innerHTML = '';
+    boardCells = [];
+    // 固定地块 6×7：挖空格可点击打开，打开后高亮
+    for (var r = 0; r < state.rows; r++) {
+      var rowArr = [];
+      for (var c = 0; c < state.cols; c++) {
+        var d = document.createElement('div');
+        var key = r + ',' + c;
+        var cls = 'cell';
+        if (state.blocked.has(key)) {
+          if (state.extra.has(key)) cls += ' extra';
+          else if (state.sysExtra.has(key)) cls += ' extra sys';
+          else cls += ' blocked diggable';
+        } else {
+          cls += ' plot';   // 初始 15 格与普通可用格同色
+        }
+        d.className = cls;
+        d.dataset.r = r;
+        d.dataset.c = c;
+        boardEl.appendChild(d);
+        rowArr.push(d);
+      }
+      boardCells.push(rowArr);
+    }
+  }
+
+  /* 打开 / 收回挖空格：系统开格不限量，用户开格最多 3 个 */
+  function toggleExtra(r, c) {
+    if (r >= state.rows || c >= state.cols) return;
+    var key = r + ',' + c;
+    if (!state.blocked.has(key)) return;   // 只有挖空格能打开
+    if (state.sysExtra.has(key)) {
+      state.sysExtra.delete(key);
+      toast('已收回系统开格');
+    } else if (state.extra.has(key)) {
+      state.extra.delete(key);
+      toast('已收回用户开格（' + state.extra.size + '/' + EXTRA_LIMIT + '）');
+    } else if (state.openMode === 'sys') {
+      state.sysExtra.add(key);
+      toast('系统开格 +1（共 ' + state.sysExtra.size + ' 格，不限量）');
+    } else {
+      if (extraLeft() <= 0) { toast('自己最多只能开 ' + EXTRA_LIMIT + ' 格；切到「系统开格」模式可标记系统开的格子'); return; }
+      state.extra.add(key);
+      toast('已开 ' + state.extra.size + '/' + EXTRA_LIMIT);
+    }
+    renderBoard();
+    updateStats();
+    invalidateSolution();
+  }
+
+  function closeAllExtras() {
+    if (!state.extra.size && !state.sysExtra.size) { toast('当前没有开格'); return; }
+    var sysN = state.sysExtra.size, usrN = state.extra.size;
+    state.extra.clear();
+    state.sysExtra.clear();
+    renderBoard();
+    updateStats();
+    invalidateSolution();
+    toast('已收回全部开格（系统 ' + sysN + ' · 用户 ' + usrN + '）');
+  }
+
+  /* 开格模式切换 */
+  function setOpenMode(m) {
+    state.openMode = m;
+    $('#modeUser').classList.toggle('sel', m === 'user');
+    $('#modeSys').classList.toggle('sel', m === 'sys');
+  }
+
+  /* ---------------- 模块绘制区 ---------------- */
+  var modulePadEl = $('#modulePad');
+  var moduleCells = [];
+
+  function renderModulePad() {
+    modulePadEl.style.setProperty('--cols', state.cols);
+    modulePadEl.innerHTML = '';
+    moduleCells = [];
+    for (var r = 0; r < state.rows; r++) {
+      var rowArr = [];
+      for (var c = 0; c < state.cols; c++) {
+        var d = document.createElement('div');
+        d.className = 'mcell' + (state.draft.has(r + ',' + c) ? ' on' : '');
+        d.dataset.r = r;
+        d.dataset.c = c;
+        d.style.setProperty('--mc', qualColor(state.draftTier));
+        modulePadEl.appendChild(d);
+        rowArr.push(d);
+      }
+      moduleCells.push(rowArr);
+    }
+  }
+
+  function setDraft(r, c, val) {
+    var key = r + ',' + c;
+    if (val) state.draft.add(key); else state.draft.delete(key);
+    var el = moduleCells[r] && moduleCells[r][c];
+    if (el) {
+      el.classList.toggle('on', val);
+      el.style.setProperty('--mc', qualColor(state.draftTier));
+    }
+  }
+
+  function repaintDraftColors() {
+    state.draft.forEach(function (key) {
+      var p = key.split(',');
+      var el = moduleCells[+p[0]] && moduleCells[+p[0]][+p[1]];
+      if (el) el.style.setProperty('--mc', qualColor(state.draftTier));
+    });
+  }
+
+  /* ---------------- 通用拖拽绘制 ---------------- */
+  function bindPaint(container, getVal, setVal) {
+    var painting = false, target = false;
+
+    container.addEventListener('pointerdown', function (e) {
+      var cell = e.target.closest('[data-r]');
+      if (!cell) return;
+      e.preventDefault();
+      var r = +cell.dataset.r, c = +cell.dataset.c;
+      target = !getVal(r, c);
+      painting = true;
+      setVal(r, c, target);
+    });
+
+    container.addEventListener('pointermove', function (e) {
+      if (!painting) return;
+      var el = document.elementFromPoint(e.clientX, e.clientY);
+      if (!el) return;
+      var cell = el.closest('[data-r]');
+      if (!cell || !container.contains(cell)) return;
+      var r = +cell.dataset.r, c = +cell.dataset.c;
+      if (getVal(r, c) !== target) setVal(r, c, target);
+    });
+
+    window.addEventListener('pointerup', function () { painting = false; });
+    window.addEventListener('pointercancel', function () { painting = false; });
+  }
+
+  /* ---------------- 品质选择 ---------------- */
+  function renderQualitySel() {
+    var el = $('#qualitySel');
+    el.innerHTML = '';
+    QUALITIES.forEach(function (q, t) {
+      var d = document.createElement('div');
+      d.className = 'qchip' + (t === state.draftTier ? ' sel' : '');
+      d.innerHTML = '<i style="background:' + q.color + '"></i>' + q.name;
+      d.title = q.name + ' 品质 · 优先级 ' + (t + 1) + '/5';
+      d.addEventListener('click', function () {
+        state.draftTier = t;
+        renderQualitySel();
+        repaintDraftColors();
+        renderLibrary();
+      });
+      el.appendChild(d);
+    });
+  }
+
+  /* ---------------- 模块库 ---------------- */
+  function moduleThumb(m) {
+    var el = document.createElement('div');
+    el.className = 'thumb';
+    el.style.gridTemplateColumns = 'repeat(' + m.w + ', 1fr)';
+    el.style.gridTemplateRows = 'repeat(' + m.h + ', 1fr)';
+    var set = new Set(m.cells.map(function (p) { return p[0] * m.w + p[1]; }));
+    for (var i = 0; i < m.w * m.h; i++) {
+      var d = document.createElement('i');
+      if (set.has(i)) d.style.background = m.color;
+      el.appendChild(d);
+    }
+    return el;
+  }
+
+  function renderModules() {
+    var list = $('#moduleList');
+    list.innerHTML = '';
+
+    if (state.modules.length === 0) {
+      var ph = document.createElement('div');
+      ph.className = 'hint';
+      ph.style.margin = '0';
+      ph.style.padding = '10px 2px';
+      ph.textContent = '还没有模块。点击上方模块库卡片添加，或在「自定义形状」里画。';
+      list.appendChild(ph);
+      renderLibrary();
+      return;
+    }
+
+    state.modules.forEach(function (m, idx) {
+      var card = document.createElement('div');
+      card.className = 'mod-card';
+
+      var tw = document.createElement('div');
+      tw.className = 'thumb-wrap';
+      tw.appendChild(moduleThumb(m));
+      card.appendChild(tw);
+
+      var info = document.createElement('div');
+      info.className = 'mod-info';
+      info.innerHTML =
+        '<div class="mod-name" style="color:' + m.color + '">' + m.name +
+        '<span class="q-badge" data-act="tier" title="点击切换品质" style="background:' + m.color + '">' +
+        qualName(m.tier) + '</span>' +
+        '<span class="mod-area">' + m.cells.length + ' 格</span></div>' +
+        '<div class="stepper">' +
+        '<button data-act="dec">−</button><span>' + m.count + '</span><button data-act="inc">+</button>' +
+        '</div>';
+      card.appendChild(info);
+
+      var del = document.createElement('button');
+      del.className = 'del';
+      del.dataset.act = 'del';
+      del.textContent = '✕';
+      card.appendChild(del);
+
+      card.addEventListener('click', function (e) {
+        var act = e.target.dataset.act;
+        if (!act) return;
+        if (act === 'inc') m.count = Math.min(49, m.count + 1);
+        if (act === 'dec') m.count = Math.max(0, m.count - 1);
+        if (act === 'tier') {
+          m.tier = (m.tier + 1) % QUALITIES.length;
+          m.color = qualColor(m.tier);
+          toast(m.name + ' 品质 → ' + qualName(m.tier));
+        }
+        if (act === 'del') state.modules.splice(idx, 1);
+        renderModules();
+        updateStats();
+        invalidateSolution();
+      });
+
+      card.addEventListener('mouseenter', function () { highlightModule(m.name, true); });
+      card.addEventListener('mouseleave', function () { highlightModule(m.name, false); });
+
+      list.appendChild(card);
+    });
+
+    renderLibrary();
+  }
+
+  /* ---------------- 模块库 ---------------- */
+  function renderLibrary() {
+    var grid = $('#libGrid');
+    if (!grid) return;
+    grid.innerHTML = '';
+
+    // 当前清单里每个「形状+品质」的数量
+    var counts = {};
+    state.modules.forEach(function (m) {
+      var k = m.key + '|' + m.tier;
+      counts[k] = (counts[k] || 0) + m.count;
+    });
+
+    // 形状库按固定顺序展示；颜色跟随当前所选品质
+    var tier = state.draftTier;
+    var color = qualColor(tier);
+
+    var items = LIBRARY.map(function (it) {
+      var cells = normalize(it.cells);
+      var b = bounds(cells);
+      return {
+        label: it.label,
+        cells: cells,
+        w: b.w,
+        h: b.h,
+        key: shapeKey(cells)
+      };
+    });
+
+    items.forEach(function (it) {
+      var inList = counts[it.key + '|' + tier] || 0;
+      var card = document.createElement('div');
+      card.className = 'lib-card' + (inList ? ' active' : '');
+
+      var tw = document.createElement('div');
+      tw.appendChild(moduleThumb({ cells: it.cells, w: it.w, h: it.h, color: color }));
+      card.appendChild(tw);
+
+      var info = document.createElement('div');
+      info.className = 'lib-info';
+      info.innerHTML =
+        '<div class="lib-name">' + it.label + '</div>' +
+        '<div class="lib-sub">' + it.cells.length + ' 格</div>';
+      card.appendChild(info);
+
+      if (inList) {
+        var cnt = document.createElement('span');
+        cnt.className = 'lib-cnt';
+        cnt.style.background = color;
+        cnt.textContent = '×' + inList;
+        card.appendChild(cnt);
+      }
+
+      card.title = '按「' + qualName(tier) + '」品质加入清单' + (inList ? '（再点数量 +1）' : '');
+      card.addEventListener('click', function () {
+        var t = state.draftTier;
+        var exist = null;
+        for (var i = 0; i < state.modules.length; i++) {
+          if (state.modules[i].key === it.key && state.modules[i].tier === t) { exist = state.modules[i]; break; }
+        }
+        if (exist) {
+          exist.count = Math.min(49, exist.count + 1);
+          toast(exist.name + '（' + it.label + '·' + qualName(t) + '）数量 +1 → ' + exist.count);
+        } else {
+          idCounter++;
+          state.modules.push({
+            name: 'M' + idCounter,
+            key: it.key,
+            cells: it.cells,
+            w: it.w,
+            h: it.h,
+            tier: t,
+            color: qualColor(t),
+            count: 1
+          });
+          toast('已添加 ' + qualName(t) + '·' + it.label);
+        }
+        renderModules();
+        updateStats();
+        invalidateSolution();
+      });
+
+      grid.appendChild(card);
+    });
+  }
+
+  function highlightModule(name, on) {
+    var cells = $('#result').querySelectorAll('.rcell');
+    for (var i = 0; i < cells.length; i++) {
+      if (cells[i].dataset.name === name) cells[i].classList.toggle('hl', on);
+    }
+  }
+
+  /* ---------------- 添加模块 ---------------- */
+  function addModule() {
+    if (state.draft.size === 0) { toast('请先在绘制区点出模块形状'); return; }
+
+    var raw = [];
+    state.draft.forEach(function (key) {
+      var p = key.split(',');
+      raw.push([+p[0], +p[1]]);
+    });
+    var cells = normalize(raw);
+    var key = shapeKey(cells);
+
+    var exist = null;
+    for (var i = 0; i < state.modules.length; i++) {
+      if (state.modules[i].key === key && state.modules[i].tier === state.draftTier) {
+        exist = state.modules[i]; break;
+      }
+    }
+
+    if (exist) {
+      exist.count = Math.min(49, exist.count + 1);
+      toast('同形状同品质已存在，数量 +1（' + exist.name + '）');
+    } else {
+      var b = bounds(cells);
+      idCounter++;
+      state.modules.push({
+        name: 'M' + idCounter,
+        key: key,
+        cells: cells,
+        w: b.w,
+        h: b.h,
+        tier: state.draftTier,
+        color: qualColor(state.draftTier),
+        count: 1
+      });
+    }
+
+    state.draft.clear();
+    renderModulePad();
+    renderModules();
+    updateStats();
+    invalidateSolution();
+  }
+
+    /* ---------------- 统计 ---------------- */
+  function updateStats() {
+    var plotCells = state.rows * state.cols;
+    var plotFree = plotCells - state.blocked.size;
+    var extraN = state.extra.size;
+    var sysN = state.sysExtra.size;
+    var free = plotFree + extraN + sysN;   // 可用 = 基础可用 + 用户开格 + 系统开格
+
+    $('#boardStat').innerHTML =
+      '可用 <b>' + free + '</b> / ' + plotCells + ' 格（固定地块）' +
+      '<br>用户开格 <b class="' + (extraN >= EXTRA_LIMIT ? 'warn' : 'ok') + '">' + extraN + '</b> / ' + EXTRA_LIMIT +
+      ' · 系统开格 <b style="color:#4dd0b0">' + sysN + '</b>（不限）' +
+      '　<span class="warn">挖空 ' + (state.blocked.size - extraN - sysN) + ' 格</span>';
+
+    var area = 0, count = 0;
+    var byTier = [0, 0, 0, 0, 0];
+    state.modules.forEach(function (m) {
+      area += m.cells.length * m.count;
+      count += m.count;
+      byTier[m.tier] += m.count;
+    });
+
+    var note;
+    if (area === 0) {
+      note = '<span class="warn">还没有模块</span>';
+    } else if (area <= free) {
+      note = '<span class="ok">可全部放入（空 ' + (free - area) + ' 格）</span>';
+    } else if (extraLeft() > 0) {
+      note = '<span class="warn">超出 ' + (area - free) + ' 格 · 还可开 ' + extraLeft() + ' 格</span>';
+    } else {
+      note = '<span class="warn">超出 ' + (area - free) + ' 格，将按品质优先摆放</span>';
+    }
+
+    var qParts = [];
+    for (var t = QUALITIES.length - 1; t >= 0; t--) {
+      if (!byTier[t]) continue;
+      qParts.push('<span style="color:' + QUALITIES[t].color + '">' + QUALITIES[t].name + ' ' + byTier[t] + '</span>');
+    }
+
+    $('#modStat').innerHTML =
+      '模块 <b>' + count + '</b> 个 · 共 <b>' + area + '</b> 格　' + note +
+      (qParts.length ? '<br><span style="color:#5f6879">品质</span> ' + qParts.join(' · ') : '');
+  }
+
+  /* ---------------- 结果渲染 ---------------- */
+  function clearResult() {
+    $('#result').style.display = 'none';
+    $('#emptyState').style.display = 'flex';
+    $('#legend').innerHTML = '';
+  }
+
+  function invalidateSolution() {
+    state.solution = null;
+    $('#solveStat').textContent = '等待摆放…';
+    clearResult();
+  }
+
+  function renderSolution() {
+    var grid = $('#result');
+    var sol = state.solution;
+    var map = new Map();
+
+    if (sol) {
+      sol.placements.forEach(function (p) {
+        p.cells.forEach(function (rc) { map.set(rc[0] + ',' + rc[1], p); });
+      });
+    }
+
+    grid.innerHTML = '';
+    grid.style.setProperty('--cols', CANVAS);
+    grid.style.display = 'grid';
+
+    for (var r = 0; r < state.rows; r++) {
+      for (var c = 0; c < CANVAS; c++) {
+        var d = document.createElement('div');
+        if (c >= state.cols && !isExtra(r, c)) {
+          d.className = 'rcell ghost';
+        } else if (!isAvail(r, c)) {
+          d.className = 'rcell void';
+        } else {
+          var p = map.get(r + ',' + c);
+          if (p) {
+            d.className = 'rcell';
+            d.style.background = p.color;
+            d.dataset.name = p.name;
+            d.title = p.name;
+            if (p.cells[0] && p.cells[0][0] === r && p.cells[0][1] === c) {
+              d.textContent = p.name;
+            }
+          } else {
+            var isUser = isExtra(r, c);
+            var isSys = state.sysExtra.has(r + ',' + c);
+            d.className = 'rcell free' + (isUser ? ' extrafree' : (isSys ? ' sysfree' : ''));
+            d.title = isUser ? '用户开格空闲' : (isSys ? '系统开格空闲' : '空闲');
+          }
+        }
+        grid.appendChild(d);
+      }
+    }
+
+    // 图例：已放入 / 未放入
+    var lg = $('#legend');
+    lg.innerHTML = '';
+
+    var seen = {};
+    (sol ? sol.placements : []).forEach(function (p) {
+      if (seen[p.name]) return;
+      seen[p.name] = true;
+      var item = document.createElement('div');
+      item.className = 'lg';
+      item.innerHTML = '<i style="background:' + p.color + '"></i>' + p.name +
+        ' <span class="q-badge" style="background:' + p.color + '">' + qualName(p.tier) + '</span>';
+      item.addEventListener('mouseenter', function () { highlightModule(p.name, true); });
+      item.addEventListener('mouseleave', function () { highlightModule(p.name, false); });
+      lg.appendChild(item);
+    });
+
+    if (sol && sol.missing && sol.missing.length) {
+      var agg = {};
+      sol.missing.forEach(function (m) {
+        if (!agg[m.name]) agg[m.name] = { color: m.color, tier: m.tier, n: 0 };
+        agg[m.name].n++;
+      });
+      Object.keys(agg).forEach(function (k) {
+        var m = agg[k];
+        var item = document.createElement('div');
+        item.className = 'lg miss';
+        item.innerHTML = '<i style="background:' + m.color + ';opacity:.28"></i>' + k +
+          ' <span class="q-badge" style="background:' + m.color + ';opacity:.5">' + qualName(m.tier) + '</span>' +
+          ' <span class="x">×' + m.n + '</span>&nbsp;未放入';
+        lg.appendChild(item);
+      });
+    }
+  }
+
+  /* ---------------- 求解流程 ---------------- */
+  function startSolve() {
+    if (state.searching) return;
+    if (state.modules.length === 0) { toast('请先添加模块'); return; }
+
+    state.solution = null;
+    state.searching = true;
+    $('#emptyState').style.display = 'none';
+    $('#result').style.display = 'none';
+    $('#legend').innerHTML = '';
+    $('#openHint').style.display = 'none';
+    $('#solveStat').innerHTML = '<span class="warn">计算中…</span>';
+
+    var mods = state.modules.slice();
+
+    requestAnimationFrame(function () {
+      setTimeout(function () {
+        var res;
+        try {
+          res = createSolver(CANVAS, CANVAS, isAvail, mods);
+        } catch (err) {
+          state.searching = false;
+          $('#emptyState').style.display = 'flex';
+          $('#solveStat').innerHTML = '<span class="err">计算出错：' + err.message + '</span>';
+          return;
+        }
+        state.searching = false;
+        handleResult(res);
+      }, 0);
+    });
+  }
+
+  function handleResult(res) {
+    if (!res.ok) {
+      $('#emptyState').style.display = 'flex';
+      $('#result').style.display = 'none';
+      $('#legend').innerHTML = '';
+      $('#openHint').style.display = 'none';
+      $('#solveStat').innerHTML = '<span class="err">✕ ' + res.error + '</span>';
+      return;
+    }
+
+    state.solution = { placements: res.placements, missing: res.missing };
+    $('#emptyState').style.display = 'none';
+    $('#result').style.display = 'grid';
+    renderSolution();
+
+    var leftCells = res.freeCount - res.coverage;
+    var missCount = res.missing.length;
+    var missArea = res.totalArea - res.coverage;
+
+    var head;
+    if (missCount === 0) {
+      head = '<span class="ok">✓ 全部放入</span>';
+    } else if (res.coverage >= res.freeCount) {
+      head = '<span class="ok">✓ 地块已铺满（品质优先）</span>';
+    } else if (res.optimal) {
+      head = '<span class="warn">已按品质优先放到最多</span>';
+    } else {
+      head = '<span class="warn">已找到较好方案（未证明最优）</span>';
+    }
+
+    var parts = ['占用 <b>' + res.coverage + '</b> / ' + res.freeCount + ' 格'];
+    if (state.extra.size || state.sysExtra.size) parts.push('含开格 ' + (state.extra.size + state.sysExtra.size) + ' 格（系统 ' + state.sysExtra.size + ' + 用户 ' + state.extra.size + '）');
+    if (leftCells > 0) parts.push('空闲 ' + leftCells + ' 格');
+    if (missCount > 0) parts.push('未放入 <b>' + missCount + '</b> 个模块（' + missArea + ' 格）');
+
+    // 各品质放入情况（高 → 低）
+    var qCells = [];
+    res.tierStats.forEach(function (st) {
+      if (!st.total) return;
+      var allIn = st.placed === st.total;
+      qCells.push('<span style="color:' + QUALITIES[st.tier].color + ';' + (allIn ? '' : 'font-weight:650') + '">' +
+        QUALITIES[st.tier].name + ' ' + st.placed + '/' + st.total +
+        (allIn ? '' : '（少 ' + (st.total - st.placed) + '）') + '</span>');
+    });
+
+    $('#solveStat').innerHTML =
+      head + '　' + parts.join(' · ') +
+      (qCells.length ? '<br><span style="color:#5f6879">品质</span> ' + qCells.reverse().join(' · ') : '') +
+      '<br><span style="color:#5f6879">搜索节点 ' + res.nodes.toLocaleString() +
+      ' · ' + res.elapsed.toFixed(1) + ' ms' +
+      (res.stopped ? ' · 已达搜索上限，可继续缩小地块或减少模块' : '') + '</span>';
+
+    updateOpenHint(res);
+  }
+
+  /* ---------------- 开格提示 ---------------- */
+  function updateOpenHint(res) {
+    var el = $('#openHint');
+    if (!res || !res.ok || !res.missing.length) {
+      el.style.display = 'none';
+      el.innerHTML = '';
+      return;
+    }
+    var missArea = res.totalArea - res.coverage;
+    var left = extraLeft();
+    var html;
+    if (left > 0) {
+      html = '<b>有 ' + res.missing.length + ' 个模块放不下</b>（共 ' + missArea + ' 格）· 还可打开 <b>' + left + '</b> 个格子' +
+        '<div class="acts">' +
+        '<button id="hintOpen" class="primary">智能开格</button>' +
+        '<span class="dim">或直接点击黑色斜纹格手动打开</span>' +
+        '</div>';
+    } else {
+      html = '<b>自己的 3 格已开满，仍有 ' + res.missing.length + ' 个模块放不下</b>（共 ' + missArea + ' 格）· 可减少模块或换更紧凑的形状';
+    }
+    el.innerHTML = html;
+    el.style.display = 'block';
+  }
+
+  /* ---------------- 智能开格 ---------------- */
+  var EVAL_BUDGET = 160000;   // 评估候选位置时的节点上限
+
+  // 该格是否值得开：存在某个模块的某个摆放，覆盖此格，
+  // 且摆放里还需要用户打开的格子数不超过剩余开格数（系统开过的格不算在内，否则开了也放不下，纯浪费）
+  function candidateUseful(r, c, mods, left) {
+    for (var mi = 0; mi < mods.length; mi++) {
+      var m = mods[mi];
+      if (!m.count) continue;
+      for (var dr = Math.max(0, r - m.h + 1); dr + m.h <= state.rows; dr++) {
+        if (dr > r) break;
+        for (var dc = Math.max(0, c - m.w + 1); dc + m.w <= state.cols; dc++) {
+          if (dc > c) break;
+          var miss = 0, covers = false;
+          for (var t = 0; t < m.cells.length; t++) {
+            var rr = dr + m.cells[t][0], cc = dc + m.cells[t][1];
+            if (rr === r && cc === c) covers = true;
+            var k2 = rr + ',' + cc;
+            if (state.blocked.has(k2) && !state.sysExtra.has(k2)) miss++;
+          }
+          if (covers && miss <= left) return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  function candidatesForOpening(extraSet) {
+    var left = EXTRA_LIMIT - extraSet.size;
+    var list = [];
+    for (var r = 0; r < state.rows; r++) {
+      for (var c = 0; c < state.cols; c++) {
+        var key = r + ',' + c;
+        if (!state.blocked.has(key) || extraSet.has(key) || state.sysExtra.has(key)) continue;
+        if (!candidateUseful(r, c, state.modules, left)) continue;
+        // 邻接的可用格越多越紧凑，作为同分时的排序依据
+        var adj = 0;
+        for (var i = 0; i < 4; i++) {
+          var rr = r + DIRS[i][0], cc = c + DIRS[i][1];
+          if (rr < 0 || cc < 0 || rr >= state.rows || cc >= state.cols) continue;
+          if (isAvail(rr, cc) || extraSet.has(rr + ',' + cc)) adj++;
+        }
+        list.push({ r: r, c: c, adj: adj });
+      }
+    }
+    list.sort(function (a, b) { return b.adj - a.adj || (a.r + a.c) - (b.r + b.c) || a.r - b.r; });
+    return list.slice(0, 10);
+  }
+
+  function smartOpen() {
+    if (state.searching) return;
+    if (!state.modules.length) { toast('请先添加模块'); return; }
+    if (extraLeft() <= 0) {
+      toast('自己的 ' + EXTRA_LIMIT + ' 格已开满（系统开格请在地块面板手动标记）');
+      startSolve();
+      return;
+    }
+
+    state.searching = true;
+    $('#openHint').style.display = 'none';
+    $('#solveStat').innerHTML = '<span class="warn">正在评估最佳开格位置…</span>';
+
+    var mods = state.modules.slice();
+    var added = [];
+    var reason = '';
+
+    // 评估某一组开格下的最好覆盖；"完全放不进"按 0 覆盖处理（正是要开格的场景）
+    function evaluate(extraSet) {
+      try {
+        var r = createSolver(CANVAS, CANVAS, makeAvail(extraSet), mods, EVAL_BUDGET);
+        return r.ok ? r : { ok: false, coverage: 0, score: 0, missing: [{}] };
+      } catch (e) { return null; }
+    }
+
+    function finish() {
+      state.searching = false;
+      renderBoard();
+      updateStats();
+      if (added.length) {
+        toast('已开 ' + added.length + ' 格：' +
+          added.map(function (p) { return '(' + (p.r + 1) + ',' + (p.c + 1) + ')'; }).join(' '));
+      } else if (reason === 'fit') {
+        toast('当前已能全部放入，不需要开格');
+      } else if (reason === 'full') {
+        toast('已经开满 ' + EXTRA_LIMIT + ' 格');
+      } else if (reason === 'error') {
+        toast('当前配置无法求解，先检查地块与模块');
+      } else {
+        toast('开格也无法多放，建议减少模块或换更紧凑的形状');
+      }
+      if (state.modules.length) startSolve();
+      else invalidateSolution();
+    }
+
+    function step() {
+      var base = evaluate(state.extra);
+      if (!base) { reason = 'error'; finish(); return; }
+      if (base.ok && !base.missing.length) { reason = 'fit'; finish(); return; }
+      if (extraLeft() <= 0) { reason = 'full'; finish(); return; }
+
+      var cands = candidatesForOpening(state.extra);
+      if (!cands.length) { finish(); return; }
+
+      var best = null, bestCov = -1, bestAdj = -1;
+      for (var i = 0; i < cands.length; i++) {
+        var trial = new Set(state.extra);
+        trial.add(cands[i].r + ',' + cands[i].c);
+        var r2 = evaluate(trial);
+        if (!r2) continue;
+        var cov = r2.score;   // 品质优先的分数，比纯覆盖率更贴合目标
+        if (cov > bestCov || (cov === bestCov && cands[i].adj > bestAdj)) {
+          bestCov = cov; bestAdj = cands[i].adj; best = cands[i];
+        }
+      }
+      if (!best) { finish(); return; }
+
+      state.extra.add(best.r + ',' + best.c);
+      added.push(best);
+      if (extraLeft() <= 0) { finish(); return; }
+      setTimeout(step, 0);
+    }
+
+    setTimeout(step, 30);
+  }
+
+  /* ---------------- 事件绑定 ---------------- */
+
+  bindPaint(modulePadEl, function (r, c) { return state.draft.has(r + ',' + c); }, setDraft);
+
+  // 地块：点挖空格打开 / 再点收回（地块固定，不可挖空编辑）
+  boardEl.addEventListener('pointerdown', function (e) {
+    var cell = e.target.closest('[data-r]');
+    if (!cell) return;
+    var r = +cell.dataset.r, c = +cell.dataset.c;
+    if (!state.blocked.has(r + ',' + c)) return;   // 可用格不可改
+    e.preventDefault();
+    e.stopPropagation();
+    toggleExtra(r, c);
+  }, true);
+
+  $('#addModule').addEventListener('click', addModule);
+  $('#clearDraft').addEventListener('click', function () {
+    state.draft.clear();
+    renderModulePad();
+  });
+  $('#solveBtn').addEventListener('click', startSolve);
+  $('#smartOpen').addEventListener('click', smartOpen);
+  $('#closeExtra').addEventListener('click', closeAllExtras);
+  $('#modeUser').addEventListener('click', function () { setOpenMode('user'); });
+  $('#modeSys').addEventListener('click', function () { setOpenMode('sys'); });
+  $('#openHint').addEventListener('click', function (e) {
+    if (e.target && e.target.id === 'hintOpen') smartOpen();
+  });
+
+  /* ---------------- 启动 ---------------- */
+  $('#rows').value = state.rows;
+  $('#cols').value = state.cols;
+  renderBoard();
+  renderModulePad();
+  renderQualitySel();
+  renderModules();
+  updateStats();
+})();
+</script>
+</body>
+</html>

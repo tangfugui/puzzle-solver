@@ -1,0 +1,14 @@
+# WorkBuddy 项目数据（本地缓存/记忆，不入库）
+.workbuddy/
+
+# 系统与编辑器
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+
+# 临时文件
+*.tmp
+_t.html
+_mk_test.js
