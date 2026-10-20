@@ -311,6 +311,104 @@
     opacity:0;pointer-events:none;transition:.22s;z-index:99;
   }
   .toast.show{opacity:1;transform:translate(-50%,0);}
+
+  /* ============ 攻略文档 ============ */
+  .doc-btn{
+    display:inline-flex;align-items:center;gap:7px;
+    background:#1e2532;border:1px solid var(--line2);color:var(--text);
+    padding:7px 14px;border-radius:9px;font-size:12.5px;cursor:pointer;
+    transition:.15s;
+  }
+  .doc-btn:hover{background:#273040;border-color:#4a5b78;color:#fff;}
+  .doc-btn .ic{font-size:13px;color:#ffb45c;}
+
+  .doc-backdrop{
+    position:fixed;inset:0;background:rgba(4,6,10,.62);
+    opacity:0;pointer-events:none;transition:.2s;z-index:200;
+    backdrop-filter:blur(2px);
+  }
+  .doc-backdrop.open{opacity:1;pointer-events:auto;}
+
+  .doc-drawer{
+    position:fixed;top:0;right:0;bottom:0;width:min(560px,92vw);
+    background:linear-gradient(180deg,#161b25,#11141b);
+    border-left:1px solid var(--line2);
+    box-shadow:-18px 0 50px rgba(0,0,0,.55);
+    display:flex;flex-direction:column;
+    transform:translateX(102%);transition:transform .24s cubic-bezier(.4,0,.2,1);
+    z-index:201;
+  }
+  .doc-drawer.open{transform:translateX(0);}
+
+  .doc-head{
+    flex:none;display:flex;align-items:center;gap:10px;
+    padding:15px 18px 13px;border-bottom:1px solid var(--line);
+  }
+  .doc-head .ttl{font-size:14px;font-weight:500;letter-spacing:.2px;}
+  .doc-head .meta{font-size:11.5px;color:var(--dim);margin-top:2px;}
+  .doc-head .x{
+    margin-left:auto;flex:none;width:30px;height:30px;padding:0;
+    display:flex;align-items:center;justify-content:center;
+    font-size:17px;line-height:1;color:var(--muted);
+    background:transparent;border:1px solid transparent;
+  }
+  .doc-head .x:hover{background:#242c3b;border-color:var(--line2);color:var(--text);}
+
+  .doc-nav{
+    flex:none;display:flex;flex-wrap:wrap;gap:6px;
+    padding:11px 18px;border-bottom:1px solid var(--line);
+    background:#141922;
+  }
+  .doc-nav button{
+    font-size:11.5px;padding:5px 10px;border-radius:7px;
+    background:#1b2230;border:1px solid var(--line);color:var(--muted);
+  }
+  .doc-nav button:hover{color:var(--text);border-color:var(--line2);}
+  .doc-nav button.sel{background:#2a3550;border-color:#4a63a8;color:#fff;}
+
+  .doc-body{flex:1;overflow-y:auto;padding:16px 18px 40px;scroll-behavior:smooth;}
+  .doc-body::-webkit-scrollbar{width:8px;}
+  .doc-body::-webkit-scrollbar-thumb{background:#242a37;border-radius:4px;}
+
+  .doc-sec{margin-bottom:22px;}
+  .doc-sec > h3{
+    font-size:13.5px;font-weight:500;margin:0 0 9px;
+    color:#cdd6e8;display:flex;align-items:center;gap:8px;
+    padding-bottom:7px;border-bottom:1px solid var(--line);
+  }
+  .doc-sec > h3 .tag{
+    font-size:10.5px;font-weight:400;padding:1px 7px;border-radius:5px;
+    background:#232c3d;color:#8b9ec4;border:1px solid #2e3a52;
+  }
+  .doc-card{
+    background:#171c26;border:1px solid var(--line);border-radius:10px;
+    padding:11px 13px;margin-bottom:9px;
+  }
+  .doc-card .ct{font-size:12.5px;font-weight:500;color:#e2e8f4;margin-bottom:6px;}
+  .doc-card .ct em{font-style:normal;color:var(--dim);font-weight:400;font-size:11.5px;}
+  .doc-line{font-size:12px;line-height:1.75;color:#a9b3c6;display:flex;gap:7px;}
+  .doc-line b{color:#dbe3f0;font-weight:500;flex:none;min-width:52px;}
+  .doc-line .v{color:#c3cde0;}
+  .doc-line .hlv{color:#7fd6b8;font-weight:500;}
+  .doc-line .warnv{color:#ff9d6b;}
+  .doc-tip{
+    font-size:11.5px;line-height:1.7;color:#8b93a6;
+    background:#141a24;border-left:2px solid #3a4a68;
+    padding:8px 11px;border-radius:0 8px 8px 0;margin:10px 0;
+  }
+  .doc-tip b{color:#b8c4da;}
+  .doc-empty{color:var(--dim);font-size:12px;padding:6px 0;}
+  .doc-foot{font-size:11px;color:#4e5666;text-align:right;padding-top:6px;}
+
+  .doc-fab{
+    position:fixed;right:22px;bottom:22px;z-index:120;
+    display:flex;align-items:center;gap:8px;
+    background:#243049;border:1px solid #3f5580;color:#dfe6f5;
+    padding:10px 16px;border-radius:20px;font-size:12.5px;cursor:pointer;
+    box-shadow:0 8px 26px rgba(0,0,0,.45);transition:.15s;
+  }
+  .doc-fab:hover{background:#2c3b5c;border-color:#5a76ad;transform:translateY(-1px);}
+  .doc-fab .ic{color:#ffb45c;}
 </style>
 </head>
 <body>
@@ -318,6 +416,7 @@
   <header>
     <h1>拼图<span>求解器</span></h1>
     <div class="sub">固定地块（6×7）· 内置模块库 · 品质优先摆放 · 系统开格不限 / 自己开 3 格</div>
+    <button class="doc-btn" id="docBtnTop" style="margin-left:auto;"><span class="ic">▤</span>查看攻略</button>
   </header>
 
   <div class="layout">
@@ -382,6 +481,21 @@
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- ===== 攻略抽屉 ===== -->
+<div class="doc-backdrop" id="docBackdrop"></div>
+<aside class="doc-drawer" id="docDrawer" aria-hidden="true">
+  <div class="doc-head">
+    <div>
+      <div class="ttl">我要当老祖 · 全灵根平民攻略</div>
+      <div class="meta">三流派细分 · 备选方案 · 无金长老 · 27 点固定加点</div>
+    </div>
+    <button class="x" id="docClose" title="关闭 (Esc)">✕</button>
+  </div>
+  <div class="doc-nav" id="docNav"></div>
+  <div class="doc-body" id="docBody"></div>
+</aside>
+<button class="doc-fab" id="docFab"><span class="ic">▤</span>攻略</button>
 
 <script>
 (function () {
@@ -1596,6 +1710,363 @@
   $('#modeSys').addEventListener('click', function () { setOpenMode('sys'); });
   $('#openHint').addEventListener('click', function (e) {
     if (e.target && e.target.id === 'hintOpen') smartOpen();
+  });
+
+  /* ================= 攻略文档 ================= */
+  var GUIDE = [
+    {
+      id: 'rule', title: '前置核心规则', tag: '全局通用',
+      intro: '下面是攻略原文的规则部分，动手配点前先过一遍。',
+      sections: [
+        {
+          h: '固定属性点规则', note: '永久 27 点，一次性点满，无后续新增',
+          lines: [
+            ['1 点属性', '攻击 +10', ''],
+            ['', '生命 +500', ''],
+            ['', '防御 +10', ''],
+            ['', '速度 +5', '']
+          ]
+        },
+        {
+          h: '功法铁律',
+          lines: [
+            ['主修优先级', '0 星质变金色功法 > 高进阶紫色功法 > 普通金色功法', '被动机制碾压面板'],
+            ['辅修自由', '可无脑跨属性（木/土/雷高阶紫功法）', '仅吃三维属性，被动完全不生效'],
+            ['场景区分', '游历推图优先同属性辅修（保专属法宝掉落）', '竞技场/BOSS/试炼塔无脑跨属性堆高属性']
+          ]
+        },
+        {
+          h: '平民长老铁律（无金色长老）',
+          lines: [
+            ['优先级', '高星蓝紫长老 > 零星金色长老', '星级永远大于品质'],
+            ['严禁跨属性', '仅本系蓝紫长老可触发法宝共鸣', '跨属性无任何收益'],
+            ['成型范围', '所有搭配仅用蓝、紫色长老，零金色', '全员平民可成型']
+          ]
+        },
+        {
+          h: '通用养成避坑',
+          lines: [
+            ['灵根', '优先单天灵根', '多灵根会稀释全系增伤，收益大幅降低'],
+            ['属性点', '零浪费：输出流不点防御/生命，坦控流不点攻击', ''],
+            ['流派数量', '每个流派都配毕业金流 + 过渡紫流 + 极限备选流', '三套方案']
+          ]
+        }
+      ]
+    },
+    {
+      id: 'water', title: '水灵根', tag: '主力推荐',
+      intro: '初始固定面板：攻击 60、生命 2000、防御 50、速度 25 ｜ 总属性点 27 点',
+      sections: [
+        {
+          h: '凌霜三舞 · 寒冷输出流', note: '金功法毕业 · 主力',
+          lines: [
+            ['适用', '游历推图、日常清怪、慢速 BOSS、新手开荒', ''],
+            ['机制', '先手挂寒冷虚弱，压低敌方攻击，持续冻伤增伤', '攻防兼备'],
+            ['27 点加点', '7 点速度 + 20 点攻击', '速度60 / 攻击260 / 生命2000 / 防御50'],
+            ['功法', '主修【凌霜三舞（金）】+ 辅修高进阶任意紫功法', '跨属性堆属性'],
+            ['神通', '霜降、寒流、剑意、剑势', ''],
+            ['毕业长老', '洛神(1星) + 谛听(2星)', '增伤+叠寒+减伤'],
+            ['极限肉备', '冰夷(2星) + 谛听(2星)', '双高星羁绊，生存拉满'],
+            ['弃用', '0星龙女、0星玄女', '星级过低，污染法宝池']
+          ],
+          verdict: '输出稳定、生存容错高、无真空期；短板是爆发一般，冲极限 BOSS 略弱。'
+        },
+        {
+          h: '滔洪将倾 · 厚盾续航流', note: '金功法毕业 · 纯坦推图',
+          lines: [
+            ['适用', '高难游历、多怪高压关卡、持久战、挂机养老', ''],
+            ['机制', '高额水盾承伤，挨打叠护盾增益，靠护盾厚度抗伤', '拉扯无解'],
+            ['27 点加点', '7 点速度 + 20 点防御', '速度60 / 防御250 / 生命2000 / 攻击60'],
+            ['功法', '主修【滔洪将倾法（金）】+ 辅修高进阶紫功法', ''],
+            ['神通', '守势、御、寒流、汲取', ''],
+            ['无金长老', '玄冥(高星) + 冰夷(高星)', '备选：龙女(高星) + 玄冥']
+          ],
+          verdict: '坦度天花板、几乎不死；短板是输出极低，刷图速度慢。'
+        },
+        {
+          h: '沧浪覆舟 · 盾反暴击流', note: '金功法毕业 · PVP 极限',
+          lines: [
+            ['适用', '竞技场 PVP、单挑 BOSS、反制输出型敌人', ''],
+            ['机制', '挨打触发潮反反击，防御转化反伤', '专克高频普攻阵容'],
+            ['27 点加点', '7 点速度 + 20 点防御', '速度60 / 防御250 / 生命2000 / 攻击60'],
+            ['功法', '主修【沧浪覆舟式（金）】+ 辅修高进阶紫功法', ''],
+            ['神通', '潮反、守势、汲取、寒流', ''],
+            ['无金长老', '玄冥 + 谛听', '备选：冰夷 + 玄女（高星优先）']
+          ],
+          verdict: 'PVP 单挑无解，反伤上限极高；短板是群怪乏力，依赖挨打触发。'
+        },
+        {
+          h: '水系通用过渡（无金功法专用）',
+          lines: [
+            ['主修', '【千凛玉章 / 霜寒劲（紫高进阶）】', '加点、长老、神通同凌霜三舞，金色功法全部放辅修吃属性']
+          ]
+        }
+      ]
+    },
+    {
+      id: 'wood', title: '木灵根', tag: '开荒/PVE',
+      intro: '通用 27 点加点基准：6 点速度拉先手，剩余 21 点全生命（木系伤害、回血、闪避均吃生命值）',
+      sections: [
+        {
+          h: '天地同寿 · 孢子毒流', note: '金功法毕业 · PVE 天花板',
+          lines: [
+            ['适用', '所有 PVE 关卡、高层游历、极限 BOSS 冲榜', ''],
+            ['机制', '孢子寄生偷敌方攻防，叠毒持续伤害', '越打越肉、越打越强'],
+            ['功法', '主修天地同寿诀（金）+ 跨属性高进阶紫辅修', ''],
+            ['神通', 'PVE 通用【生机、无影、进化、侵蚀】', 'BOSS 冲榜【侵蚀、吸髓、剑意、剑势】'],
+            ['无金长老', '瓶灵 + 灵山巫祝', '平替：韩湘子 + 勾芒']
+          ]
+        },
+        {
+          h: '甲木长生 · 闪避续航流', note: '金功法毕业 · PVP 专属',
+          lines: [
+            ['适用', '竞技场 PVP、长线拉扯对局、防秒杀阵容', ''],
+            ['机制', '高额闪避规避伤害，长生被动持续回血', '拉扯无解'],
+            ['功法', '主修甲木长生功（金）+ 高进阶紫辅修', ''],
+            ['神通', '生机、无影、润物、混元', ''],
+            ['无金长老', '瓶灵 + 韩湘子', '']
+          ]
+        },
+        {
+          h: '万叶迷踪 · 开荒速推流', note: '紫功法极限过渡 · 新手首选',
+          lines: [
+            ['适用', '前期开荒、快速推图、零氪过渡', ''],
+            ['机制', '高频闪避 + 生命增伤', '成型快、门槛低'],
+            ['功法', '主修万叶迷踪法（紫高进阶）+ 金功法辅修', ''],
+            ['神通', '无影、生机、进化、乐涌', ''],
+            ['无金长老', '勾芒 + 木吒（高星优先）', '']
+          ]
+        }
+      ]
+    },
+    {
+      id: 'metal', title: '金灵根', tag: '爆发/暴击',
+      intro: '通用 27 点加点：10 点速度（拉满先手）+ 17 点攻击（纯爆发拉满）',
+      sections: [
+        {
+          h: '金蝉脱壳 · 极限暴击流', note: '金功法毕业 · 通用天花板',
+          lines: [
+            ['适用', 'PVE 速刷、BOSS 秒杀、日常清图', ''],
+            ['机制', '高额暴击破甲，瞬发高额伤害', '一波带走敌人'],
+            ['功法', '主修金蝉脱壳法（金）', ''],
+            ['神通', '锋芒、锐意、饮血、殒命', ''],
+            ['平民长老', '邓婵玉 + 青锋刀长老', '']
+          ]
+        },
+        {
+          h: '金光道诀 · 普攻连击流', note: '紫功法过渡 · 稳定输出',
+          lines: [
+            ['适用', '前期开荒、无毕业金功法过渡', ''],
+            ['机制', '强化普攻暴击', '输出稳定无断层'],
+            ['功法', '主修金光道诀（紫高进阶）', ''],
+            ['神通', '锋芒、豪情、饮血、锐意', ''],
+            ['平民长老', '任意高星金系蓝紫长老', '']
+          ]
+        },
+        {
+          h: '鸣金迷藏 · 拉扯偷伤流', note: '小众备选 · PVP 苟命',
+          lines: [
+            ['适用', 'PVP 拉扯、反制肉坦阵容', ''],
+            ['机制', '遁影规避伤害，持续偷伤消耗', ''],
+            ['神通', '锋芒、遁影、锐意、饮血', ''],
+            ['长老', '邓婵玉 + 高星金系长老', '']
+          ]
+        }
+      ]
+    },
+    {
+      id: 'fire', title: '火灵根', tag: '灼烧/大招',
+      intro: '通用 27 点加点：8 点速度 + 19 点攻击（全速攻，拉满灼烧爆发）',
+      sections: [
+        {
+          h: '拜火誓咒 · 炎怒大招流', note: '金功法毕业 · BOSS 冲榜',
+          lines: [
+            ['适用', '极限 BOSS、高层试炼、冲分竞速', ''],
+            ['机制', '高频灼烧快速叠怒气，大招爆发', '毁天灭地'],
+            ['神通', '祭生、浴火、燃尽、乐涌', ''],
+            ['平民长老', '焰中仙 + 赤炎驹', '']
+          ]
+        },
+        {
+          h: '求火焚星 · 持续灼烧流', note: '紫功法过渡 · 开荒稳',
+          lines: [
+            ['适用', '前期推图、日常挂机', ''],
+            ['机制', '持续灼烧 DOT 伤害', '稳定磨血'],
+            ['神通', '祭生、燃尽、浴火、乐涌', ''],
+            ['平民长老', '高星火系蓝长老', '']
+          ]
+        },
+        {
+          h: '焰浪滔天 · 普攻连烧流', note: '备选 · 清怪专用',
+          lines: [
+            ['适用', '群怪游历、快速清场', ''],
+            ['神通', '炎舞、狂热、燃尽、乐涌', '']
+          ]
+        }
+      ]
+    },
+    {
+      id: 'earth', title: '土灵根', tag: '控制/纯坦',
+      intro: '通用 27 点加点：5 点速度 + 22 点防御（极致坦度，控制拉满）',
+      sections: [
+        {
+          h: '地龙镇破 · 眩晕控制流', note: '金功法毕业 · 全能通用',
+          lines: [
+            ['适用', '全场景通用，PVE / PVP 通吃', ''],
+            ['机制', '群体眩晕控场，限制敌方输出', '团队核心'],
+            ['神通', '撼地、眩晕、守势、崩裂', ''],
+            ['平民长老', '柳土獐 + 山鬼', '']
+          ]
+        },
+        {
+          h: '泰山腐军 · 破盾专克流', note: '金功法毕业 · 反制水系',
+          lines: [
+            ['适用', '对战水系护盾阵容、高防 BOSS', ''],
+            ['机制', '高额破甲破盾', '无视护盾直接打血'],
+            ['神通', '破甲、撼地、守势、崩裂', '']
+          ]
+        },
+        {
+          h: '紫土稳坦流', note: '过渡备选 · 纯肉开荒',
+          lines: [
+            ['适用', '前期高压开荒、扛伤兜底', ''],
+            ['功法', '高进阶紫色土功法', ''],
+            ['神通', '守势、崩裂、撼地、固防', '']
+          ]
+        }
+      ]
+    },
+    {
+      id: 'thunder', title: '雷灵根', tag: '压制/封怒',
+      intro: '通用 27 点加点：9 点速度 + 18 点攻击（高速先手压制）',
+      sections: [
+        {
+          h: '太乙神雷 · 变身爆发流', note: '金功法毕业 · 后期天花板',
+          lines: [
+            ['适用', '后期高层、单挑 BOSS、PVP 压制', ''],
+            ['机制', '化身增伤，麻痹封怒', '限制敌方大招'],
+            ['神通', '化身、裁决、天威、感电', ''],
+            ['平民长老', '灵电童子 + 惊雷使', '']
+          ]
+        },
+        {
+          h: '雷殛兵解 · 缴械压制流', note: '紫功法过渡 · 先手控场',
+          lines: [
+            ['适用', '前期 PVP、克制输出阵容', ''],
+            ['机制', '先手缴械，封敌方技能', '全程压制'],
+            ['神通', '余震、积雷、乐涌、喧天', '']
+          ]
+        },
+        {
+          h: '五雷禁行 · 纯伤输出流', note: '备选 · 刷图专用',
+          lines: [
+            ['适用', '快速刷图、无控制需求对局', ''],
+            ['神通', '积雷、天罚、喧天、感电', '']
+          ]
+        }
+      ]
+    },
+    {
+      id: 'summary', title: '精简总结', tag: '水系三套取舍',
+      intro: '如果只记结论，看这一页。',
+      sections: [
+        {
+          h: '你的专属水系三套选择', note: '照着选即可',
+          lines: [
+            ['日常推图/开荒', '凌霜三舞 寒冷输出流', '7 速 20 攻 · 洛神 + 谛听'],
+            ['高难挂机/保命', '滔洪将倾 厚盾续航流', '7 速 20 防 · 玄冥 + 冰夷'],
+            ['竞技场单挑', '沧浪覆舟 盾反暴击流', '7 速 20 防 · 玄冥 + 谛听']
+          ]
+        },
+        {
+          h: '统一规则',
+          lines: [
+            ['功法', '金功法主修，高进阶紫跨属性辅修', ''],
+            ['加点', '27 点一次性点满，别分散', ''],
+            ['长老', '只用高星本系蓝紫长老', '']
+          ],
+          verdict: '部分内容由豆包工作 AI 生成。'
+        }
+      ]
+    }
+  ];
+
+  var docEls = {
+    drawer: $('#docDrawer'), backdrop: $('#docBackdrop'),
+    nav: $('#docNav'), body: $('#docBody')
+  };
+  var docCurrent = 'rule';
+
+  function esc(s) {
+    return String(s).replace(/[&<>"]/g, function (ch) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch];
+    });
+  }
+
+  function renderDocNav() {
+    docEls.nav.innerHTML = GUIDE.map(function (g) {
+      var sel = g.id === docCurrent ? ' class="sel"' : '';
+      return '<button data-doc="' + g.id + '"' + sel + '>' + esc(g.title) + '</button>';
+    }).join('');
+  }
+
+  function renderDocBody() {
+    var g = GUIDE.filter(function (x) { return x.id === docCurrent; })[0] || GUIDE[0];
+    var html = '';
+
+    html += '<div class="doc-sec"><h3>' + esc(g.title) +
+      '<span class="tag">' + esc(g.tag) + '</span></h3>';
+    if (g.intro) html += '<div class="doc-tip">' + esc(g.intro) + '</div>';
+
+    g.sections.forEach(function (sec) {
+      html += '<div class="doc-card"><div class="ct">' + esc(sec.h) +
+        (sec.note ? '　<em>' + esc(sec.note) + '</em>' : '') + '</div>';
+      sec.lines.forEach(function (ln) {
+        var label = ln[0], val = ln[1], extra = ln[2];
+        var vCls = /27 点|加点|点速度/.test(label) ? 'hlv' : '';
+        html += '<div class="doc-line">' +
+          (label ? '<b>' + esc(label) + '</b>' : '<b></b>') +
+          '<span class="v ' + vCls + '">' + esc(val) +
+          (extra ? '<span style="color:#6f7a8f"> · ' + esc(extra) + '</span>' : '') +
+          '</span></div>';
+      });
+      if (sec.verdict) html += '<div class="doc-tip" style="margin:8px 0 0;">' + esc(sec.verdict) + '</div>';
+      html += '</div>';
+    });
+
+    html += '<div class="doc-foot">原文：我要当老祖｜全灵根终极平民攻略 · 6 页</div></div>';
+    docEls.body.innerHTML = html;
+    docEls.body.scrollTop = 0;
+  }
+
+  function openDoc(id) {
+    if (id) docCurrent = id;
+    renderDocNav();
+    renderDocBody();
+    docEls.drawer.classList.add('open');
+    docEls.drawer.setAttribute('aria-hidden', 'false');
+    docEls.backdrop.classList.add('open');
+  }
+
+  function closeDoc() {
+    docEls.drawer.classList.remove('open');
+    docEls.drawer.setAttribute('aria-hidden', 'true');
+    docEls.backdrop.classList.remove('open');
+  }
+
+  $('#docBtnTop').addEventListener('click', function () { openDoc(); });
+  $('#docFab').addEventListener('click', function () { openDoc(); });
+  $('#docClose').addEventListener('click', closeDoc);
+  docEls.backdrop.addEventListener('click', closeDoc);
+  docEls.nav.addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-doc]');
+    if (!btn) return;
+    docCurrent = btn.dataset.doc;
+    renderDocNav();
+    renderDocBody();
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && docEls.drawer.classList.contains('open')) closeDoc();
   });
 
   /* ---------------- 启动 ---------------- */
